@@ -110,7 +110,13 @@ def main(argv=None):
     s.set_defaults(fn=_cmd_sample)
 
     a = p.parse_args(argv)
-    a.fn(a)
+    try:
+        a.fn(a)
+    except BrokenPipeError:  # e.g. `fastitch info file | head`
+        import os
+
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(0)
 
 
 if __name__ == "__main__":
