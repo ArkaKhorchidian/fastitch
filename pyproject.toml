@@ -1,0 +1,52 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "fastitch"
+version = "0.1.0"
+description = "Fast NASDAQ TotalView-ITCH 5.0 parser: raw feed files to Polars, pandas, Arrow or Parquet, plus order-book reconstruction"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Arka Khorchidian" }]
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.22", "pyarrow>=12"]
+keywords = ["itch", "nasdaq", "market-data", "order-book", "market-microstructure", "quant", "hft", "polars", "parquet"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Topic :: Office/Business :: Financial :: Investment",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+[project.optional-dependencies]
+polars = ["polars>=0.20"]
+pandas = ["pandas>=1.5"]
+fast-gzip = ["isal>=1.0"]
+all = ["polars>=0.20", "pandas>=1.5", "isal>=1.0"]
+test = ["pytest>=7", "polars>=0.20", "pandas>=1.5"]
+
+[project.scripts]
+fastitch = "fastitch.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ArkaKhorchidian/fastitch"
+Issues = "https://github.com/ArkaKhorchidian/fastitch/issues"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["src/fastitch"]
+build-dir = "build/{wheel_tag}"
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_i686 *-win32 *-manylinux_i686"
+test-extras = ["test"]
+test-command = "pytest {project}/tests -q"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

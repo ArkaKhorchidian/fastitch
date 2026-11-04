@@ -1,0 +1,11 @@
+build/
+dist/
+wheelhouse/
+*.egg-info/
+__pycache__/
+*.so
+*.pyd
+.pytest_cache/
+*.itch
+*.parquet
+benchmarks/results.json
