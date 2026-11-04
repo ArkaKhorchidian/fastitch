@@ -37,7 +37,7 @@ Reproduce with <code>python benchmarks/bench.py</code>; numbers on real NASDAQ d
 ## Install
 
 ```bash
-pip install fastitch            # prebuilt wheels for Linux, macOS, Windows · Python 3.9–3.13
+pip install fastitch            # prebuilt wheels for Linux, macOS, Windows · Python 3.10–3.13
 pip install "fastitch[all]"     # + polars, pandas, and ISA-L for faster .gz reading
 ```
 
