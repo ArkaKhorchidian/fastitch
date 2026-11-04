@@ -52,6 +52,7 @@ test-skip = "*-win_arm64 *-macosx_x86_64"
 
 [tool.cibuildwheel.macos]
 archs = ["arm64", "x86_64"]
+environment = { MACOSX_DEPLOYMENT_TARGET = "10.14" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
