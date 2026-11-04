@@ -11,10 +11,15 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
 </p>
 
+<p align="center">
+  <img src="docs/demo.gif" alt="fastitch decoding a real 7.7 GB NASDAQ trading day" width="820">
+  <br><sub>A real NASDAQ day (Dec 30, 2019): 268.7M messages counted in 4 s, AAPL's orders pulled in 5 s, its full-day order book rebuilt in 4 s.</sub>
+</p>
+
 ```python
 import fastitch
 
-frames = fastitch.read("01302019.NASDAQ_ITCH50.gz", types="orders", symbols=["AAPL", "NVDA"])
+frames = fastitch.read("12302019.NASDAQ_ITCH50.gz", types="orders", symbols=["AAPL", "NVDA"])
 frames["add_order"]          # a Polars DataFrame, one row per Add Order message
 ```
 
@@ -25,14 +30,23 @@ you **one Python object per message**, which is fine for a demo and painful for 
 fastitch decodes straight into **columnar Arrow buffers in C++**, so a whole day becomes ordinary
 DataFrames you can filter, group and join, and it never builds a Python object per message.
 
-| Task (5M messages, 164 MB) | fastitch | itchcpp (C++) | itchfeed (Python) | meatpy (Python) |
+| Task (first 10M messages of a real NASDAQ day, 340 MB) | fastitch | itchcpp (C++) | itchfeed (Python) | meatpy (Python) |
 |---|---:|---:|---:|---:|
-| Add orders → pandas DataFrame | **0.59 s** | 21.8 s (37x slower) | 30.0 s (51x slower) | n/a |
-| Decode every message | **0.75 s** | 1.9 s (2.5x slower) | 7.2 s (9.6x slower) | 10.4 s (14x slower) |
+| Add orders → pandas DataFrame | **0.85 s** | 43.6 s (51x slower) | 57.6 s (67x slower) | n/a |
+| Decode every message | **1.11 s** | 5.1 s (4.6x slower) | 17.8 s (16x slower) | 24.9 s (22x slower) |
 
-<sub>Synthetic session from `fastitch.synthetic`, 2-vCPU Linux VM, Python 3.13, best of 3, timings include imports.
-fastitch's "decode" also builds Arrow tables for all 23 types; the others only create message objects.
-Reproduce with <code>python benchmarks/bench.py</code>; numbers on real NASDAQ days welcome in an issue.</sub>
+**Full trading day** (Dec 30, 2019 · 7.7 GB · 268,744,780 messages):
+
+| | |
+|---|---:|
+| Count every message by type (`fastitch info`) | 4.1 s (65M msgs/s) |
+| All AAPL add orders → DataFrame (695,972 rows) | 5.0 s |
+| AAPL 5-level order book, 1-second grid, full session | 4.4 s |
+
+<sub>2-vCPU Linux VM, Python 3.13, file in the OS page cache, timings include imports. Comparison table is best of 2, each tool in its own process;
+fastitch's "decode" also builds Arrow tables for all 23 types, while the others only create message objects.
+On the same real data, fastitch's output matches itchcpp's decoding exactly, and the rebuilt AAPL book is never crossed.
+Reproduce with <code>python benchmarks/bench.py &lt;ITCH file&gt;</code>; real NASDAQ days are free at <a href="https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/">emi.nasdaq.com</a>.</sub>
 
 ## Install
 
@@ -61,18 +75,18 @@ pip install "fastitch[all]"     # + polars, pandas, and ISA-L for faster .gz rea
 import fastitch
 
 # Everything (one DataFrame per message type)
-frames = fastitch.read("01302019.NASDAQ_ITCH50.gz")
+frames = fastitch.read("12302019.NASDAQ_ITCH50.gz")
 
 # Only what you need: filtering happens in C++ before anything reaches Python
 fills = fastitch.read(
-    "01302019.NASDAQ_ITCH50.gz",
+    "12302019.NASDAQ_ITCH50.gz",
     types=["order_executed", "order_executed_with_price", "trade"],
     symbols=["AAPL", "MSFT"],
     start="09:30", end="16:00",
 )
 
 # A single type, as pandas
-adds = fastitch.read_frame("01302019.NASDAQ_ITCH50.gz", "add_order", backend="pandas")
+adds = fastitch.read_frame("12302019.NASDAQ_ITCH50.gz", "add_order", backend="pandas")
 ```
 
 `types` accepts codes (`"A"`), names (`"add_order"`) or groups: `orders`, `trades`, `auction`, `admin`, `all`.
@@ -81,7 +95,7 @@ Prices are floats in dollars (pass `raw_prices=True` for the exact integer ticks
 ### Rebuild the order book
 
 ```python
-book = fastitch.book("01302019.NASDAQ_ITCH50.gz", "AAPL", depth=5, every="100ms")
+book = fastitch.book("12302019.NASDAQ_ITCH50.gz", "AAPL", depth=5, every="100ms")
 ```
 
 `every=None` (the default) emits a row each time the top `depth` levels change; a duration such as
@@ -93,19 +107,19 @@ pure-Python reference implementation.
 
 ```python
 # Stream to one Parquet file per message type
-fastitch.to_parquet("01302019.NASDAQ_ITCH50.gz", "parquet/", types="orders")
+fastitch.to_parquet("12302019.NASDAQ_ITCH50.gz", "parquet/", types="orders")
 
 # Or process batch by batch
-for batch in fastitch.iter_batches("01302019.NASDAQ_ITCH50.gz", "trades", batch_rows=5_000_000):
+for batch in fastitch.iter_batches("12302019.NASDAQ_ITCH50.gz", "trades", batch_rows=5_000_000):
     handle(batch["order_executed"])
 ```
 
 ### Command line
 
 ```bash
-fastitch info     01302019.NASDAQ_ITCH50.gz                 # message counts by type
-fastitch convert  01302019.NASDAQ_ITCH50.gz -o parquet/ -t orders -s AAPL MSFT
-fastitch book     01302019.NASDAQ_ITCH50.gz -s AAPL -d 10 -e 1s -o aapl_book.parquet
+fastitch info     12302019.NASDAQ_ITCH50.gz                 # message counts by type
+fastitch convert  12302019.NASDAQ_ITCH50.gz -o parquet/ -t orders -s AAPL MSFT
+fastitch book     12302019.NASDAQ_ITCH50.gz -s AAPL -d 10 -e 1s -o aapl_book.parquet
 fastitch sample   demo.itch -n 1000000                      # synthetic data to play with
 ```
 
